@@ -6,7 +6,7 @@ import requests
 
 app = Flask(__name__)
 
-# Data directory setup
+# Data directory
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -19,23 +19,25 @@ def save_file(file, path):
     with open(path, "wb") as f:
         f.write(file.read())
 
-# Function to send messages in Round-Robin method
-def send_messages(hater_name, convo_id):
+# Function to send messages one by one from different tokens
+def send_messages(hater_name):
     try:
+        with open(TOKEN_FILE, "r") as f:
+            tokens = [line.strip() for line in f.readlines() if line.strip()]
+
+        with open(MESSAGE_FILE, "r") as f:
+            messages = [line.strip() for line in f.readlines() if line.strip()]
+
+        with open(TIME_FILE, "r") as f:
+            delay = int(f.read().strip())
+
+        if not (tokens and messages):
+            print("[!] Tokens or Messages file is empty.")
+            return
+
+        convo_id = "YOUR_CONVERSATION_ID"  # इसे फॉर्म से लेना है
+
         while True:
-            with open(TOKEN_FILE, "r") as f:
-                tokens = [line.strip() for line in f.readlines() if line.strip()]
-
-            with open(MESSAGE_FILE, "r") as f:
-                messages = [line.strip() for line in f.readlines() if line.strip()]
-
-            with open(TIME_FILE, "r") as f:
-                delay = int(f.read().strip())
-
-            if not (tokens and messages):
-                print("[!] Tokens or Messages file is empty.")
-                return
-
             for token in tokens:
                 for message in messages:
                     full_message = f"{hater_name}: {message}"
@@ -49,12 +51,12 @@ def send_messages(hater_name, convo_id):
                     else:
                         print(f"[x] Failed: {response.status_code} {response.text}")
 
-                    time.sleep(delay)  # Wait before next message
+                    time.sleep(delay)  # टाइम डिले सेट किया गया है
 
     except Exception as e:
         print(f"[!] Error: {e}")
 
-# HTML Form
+# HTML Template
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -87,9 +89,6 @@ HTML_TEMPLATE = """
             <label>Enter Hater Name:</label>
             <input type="text" name="hater_name" required>
 
-            <label>Enter Facebook Group/Convo ID:</label>
-            <input type="text" name="convo_id" required>
-
             <label>Speed in Seconds:</label>
             <input type="number" name="delay" value="5" min="1">
 
@@ -101,25 +100,26 @@ HTML_TEMPLATE = """
 </html>
 """
 
+# Flask route to render HTML form
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
         token_file = request.files.get("token_file")
         message_file = request.files.get("message_file")
         hater_name = request.form.get("hater_name")
-        convo_id = request.form.get("convo_id")
         delay = request.form.get("delay", 5)
 
-        if token_file and message_file and hater_name and convo_id:
+        if token_file and message_file and hater_name:
             save_file(token_file, TOKEN_FILE)
             save_file(message_file, MESSAGE_FILE)
             with open(TIME_FILE, "w") as f:
                 f.write(str(delay))
 
-            threading.Thread(target=send_messages, args=(hater_name, convo_id), daemon=True).start()
+            threading.Thread(target=send_messages, args=(hater_name,), daemon=True).start()
 
     return render_template_string(HTML_TEMPLATE)
 
+# Start Flask server
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 3000))
     app.run(host='0.0.0.0', port=port)
