@@ -1,0 +1,7 @@
+{
+  "build": {
+    "base": "python",
+    "commands": ["pip install -r requirements.txt"],
+    "output": "."
+  }
+}
