@@ -1,1 +1,1 @@
-web: python raghu.py
+web: gunicorn raghu:app
